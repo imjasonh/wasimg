@@ -68,22 +68,7 @@ func main() {
 		log.Fatalf("img.Digest: %v", err)
 	}
 
-	// Package the image in an index, which should make it easier to combine
-	// with other indexes later, or build multiple variants with this tool in
-	// the future..
-	idx := mutate.AppendManifests(empty.Index, mutate.IndexAddendum{
-		Add: img,
-		Descriptor: v1.Descriptor{
-			MediaType: types.OCIManifestSchema1,
-			Platform: &v1.Platform{
-				Architecture: "wasm",
-				OS:           "wasi",
-				Variant:      *variant,
-			},
-		},
-	})
-
-	if err := remote.WriteIndex(ref, idx, remote.WithAuthFromKeychain(authn.DefaultKeychain)); err != nil {
+	if err := remote.Write(ref, img, remote.WithAuthFromKeychain(authn.DefaultKeychain)); err != nil {
 		log.Fatalf("Pushing image: %v", err)
 	}
 	fmt.Println(ref.Context().Digest(d.String()))
