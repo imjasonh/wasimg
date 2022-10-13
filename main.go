@@ -37,17 +37,15 @@ func main() {
 		log.Fatalf("name.ParseReference: %v", err)
 	}
 
-	img, err := mutate.Config(empty.Image, v1.Config{
-		Entrypoint: []string{"/" + fn},
-	})
-	if err != nil {
-		log.Fatalf("mutate.Config: %v", err)
-	}
-
+	img := mutate.MediaType(empty.Image, types.OCIManifestSchema1).(v1.Image)
+	img = mutate.ConfigMediaType(img, types.OCIConfigJSON).(v1.Image)
 	img, err = mutate.ConfigFile(img, &v1.ConfigFile{
 		OS:           "wasi",
 		Architecture: "wasm",
 		Variant:      *variant,
+		Config: v1.Config{
+			Entrypoint: []string{fn},
+		},
 	})
 	if err != nil {
 		log.Fatalf("mutate.ConfigFile: %v", err)
@@ -57,9 +55,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("tarball.LayerFromFile: %v", err)
 	}
-	img, err = mutate.AppendLayers(img, l)
+	img, err = mutate.Append(img, mutate.Addendum{
+		Layer:     l,
+		MediaType: types.OCILayer,
+	})
 	if err != nil {
-		log.Fatalf("mutate.AppendLayers: %v", err)
+		log.Fatalf("mutate.Append: %v", err)
 	}
 
 	d, err := img.Digest()
