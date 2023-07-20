@@ -1,1 +1,2 @@
-fake.wasm
+*.wasm
+wasimg

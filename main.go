@@ -6,10 +6,14 @@ SPDX-License-Identifier: Apache-2.0
 package main
 
 import (
+	"archive/tar"
+	"bytes"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
+	"path/filepath"
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
@@ -21,10 +25,10 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/types"
 )
 
-var variant = flag.String("variant", "", "variant to set (spin, slight)")
-
 func main() {
 	flag.Parse()
+
+	hello() // this is the function that is conditionally compiled
 
 	if len(flag.Args()) != 2 {
 		log.Fatalf("Usage: %s <module>.wasm <ref>", os.Args[0])
@@ -40,9 +44,8 @@ func main() {
 	img := mutate.MediaType(empty.Image, types.OCIManifestSchema1).(v1.Image)
 	img = mutate.ConfigMediaType(img, types.OCIConfigJSON).(v1.Image)
 	img, err = mutate.ConfigFile(img, &v1.ConfigFile{
-		OS:           "wasi",
+		OS:           "wasip1",
 		Architecture: "wasm",
-		Variant:      *variant,
 		Config: v1.Config{
 			Entrypoint: []string{fn},
 		},
@@ -51,9 +54,34 @@ func main() {
 		log.Fatalf("mutate.ConfigFile: %v", err)
 	}
 
-	l, err := tarball.LayerFromFile(fn)
+	f, err := os.Open(fn)
 	if err != nil {
-		log.Fatalf("tarball.LayerFromFile: %v", err)
+		log.Fatalf("os.Open: %v", err)
+	}
+	fi, err := f.Stat()
+	if err != nil {
+		log.Fatalf("f.Stat: %v", err)
+	}
+
+	var buf bytes.Buffer
+	tw := tar.NewWriter(&buf)
+	if err := tw.WriteHeader(&tar.Header{
+		Name: filepath.Base(fn),
+		Mode: 0755,
+		Size: fi.Size(),
+	}); err != nil {
+		log.Fatalf("tw.WriteHeader: %v", err)
+	}
+	if _, err := io.Copy(tw, f); err != nil {
+		log.Fatalf("io.Copy: %v", err)
+	}
+	if err := tw.Close(); err != nil {
+		log.Fatalf("tw.Close: %v", err)
+	}
+
+	l, err := tarball.LayerFromReader(&buf)
+	if err != nil {
+		log.Fatalf("tarball.LayerFromReader: %v", err)
 	}
 	img, err = mutate.Append(img, mutate.Addendum{
 		Layer:     l,

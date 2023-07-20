@@ -5,8 +5,8 @@
 For example:
 
 ```
-$ wasimg my-module.wasm gcr.io/my-project/my-module
-gcr.io/my-project/my-module@sha256:a7bb950a6cf95fd1dfc55907ec997e37840c71f6840d0c32481e7b8392490022
+$ wasimg my-module.wasm example.com/my-project/my-module
+example.com/my-project/my-module@sha256:a7bb950a6cf95fd1dfc55907ec997e37840c71f6840d0c32481e7b8392490022
 ```
 
 It doesn't require Docker or Dockerfiles, and it reuses your pre-configured registry credentials by default.
@@ -17,51 +17,30 @@ It doesn't require Docker or Dockerfiles, and it reuses your pre-configured regi
 go install github.com/imjasonh/wasimg@latest
 ```
 
-### Details
+### Usage
 
-The OCI manifest looks like this:
-
-```
-{
-  "schemaVersion": 2,
-  "mediaType": "application/vnd.oci.image.manifest.v1+json",
-  "config": {
-    "mediaType": "application/vnd.oci.image.config.v1+json",
-    "size": 261,
-    "digest": "sha256:e3c7550643da8b5b9954e479c2ea6aa5fc679896d9ee35511f9e4056f3343af0"
-  },
-  "layers": [
-    {
-      "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
-      "size": 23,
-      "digest": "sha256:81da0491c5af5635831f6a3febb5d9bfd66987ba3ecc42e58dc3d80938c25705"
-    }
-  ]
-}
-```
-
-...and the config looks like this:
+Build a wasm module, for example, build `wasimg` itself:
 
 ```
-{
-  "architecture": "wasm",
-  "created": "0001-01-01T00:00:00Z",
-  "history": [
-    {
-      "created": "0001-01-01T00:00:00Z"
-    }
-  ],
-  "os": "wasi",
-  "rootfs": {
-    "type": "",
-    "diff_ids": [
-      "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-    ]
-  },
-  "config": {
-    "Entrypoint": [
-      "my-module.wasm"
-    ]
-  }
-}
+GOOS=wasip1 GOARCH=wasm go build -o wasimg.wasm .
 ```
+
+If you already have a wasm module, you can skip this step.
+
+Then use `wasimg` to bundle that wasm module and push it to a registry:
+
+```
+$ wasimg wasimg.wasm ttl.sh/wasimg
+ttl.sh/wasimg@sha256:caea81fc44d4d92280a4bc7ceaccf15b3466792c312c9fa38446f73ce358ee3c
+```
+
+This prints the image reference of the pushed image, which you can run:
+
+```
+$ docker run \
+  --runtime=io.containerd.wasmedge.v1 \
+  --platform=wasip1/wasm \
+  ttl.sh/wasimg@sha256:caea81fc44d4d92280a4bc7ceaccf15b3466792c312c9fa38446f73ce358ee3c
+```
+
+Try it out to see what happens!
